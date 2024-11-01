@@ -12,6 +12,11 @@ const AuthComponent = () => {
     e.preventDefault(); // 폼 제출 시 페이지 새로고침 방지
     setError(''); // 에러 메시지 초기화
 
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    // 로그인 로직 구현
+  };
+
     try {
       if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password); // 로그인 처리

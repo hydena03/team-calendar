@@ -12,6 +12,13 @@ const firebaseConfig = {
   measurementId: "G-VRL49TQ3FC"
 };
 
+
+
+// Firebase 초기화
 const app = initializeApp(firebaseConfig);
+
+// Auth와 Firestore 인스턴스 생성
 export const db = getFirestore(app);
 export const auth = getAuth(app);
+
+export default app;

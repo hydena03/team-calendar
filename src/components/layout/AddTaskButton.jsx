@@ -1,19 +1,19 @@
+// src/components/layout/AddTaskButton.jsx
 import React, { useState } from 'react';
-import { db } from '../../firebase'; // Firebase db import
-import { collection, addDoc } from 'firebase/firestore'; // Firestore 함수 import
+import { db } from '../../firebase';
+import { collection, addDoc } from 'firebase/firestore';
 
 const AddTaskButton = () => {
-  const [isModalOpen, setIsModalOpen] = useState(false); // 모달 상태 관리
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [task, setTask] = useState({
     name: '',
     priority: '중간',
     status: '시작전',
     assignee: '',
-    dueDate: new Date().toISOString().split('T')[0], // 오늘 날짜로 초기화
+    dueDate: new Date().toISOString().split('T')[0],
     summary: ''
   });
   
-  // 입력값 변경 처리
   const handleChange = (e) => {
     const { name, value } = e.target;
     setTask(prev => ({
@@ -22,13 +22,12 @@ const AddTaskButton = () => {
     }));
   };
 
-  // 태스크 추가 처리
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await addDoc(collection(db, 'tasks'), task); // Firestore에 태스크 추가
-      setIsModalOpen(false); // 모달 닫기
-      setTask({ // 입력값 초기화
+      await addDoc(collection(db, 'tasks'), task);
+      setIsModalOpen(false);
+      setTask({
         name: '',
         priority: '중간',
         status: '시작전',
@@ -109,17 +108,17 @@ const AddTaskButton = () => {
               </div>
 
               <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">마감일</label>
-                  <input
-                    type="date"
-                    name="dueDate"
-                    value={task.dueDate}
-                    onChange={handleChange}
-                    min={new Date().toISOString().split('T')[0]} // 오늘 날짜부터 선택 가능
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">마감일</label>
+                <input
+                  type="date"
+                  name="dueDate"
+                  value={task.dueDate}
+                  onChange={handleChange}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">요약</label>

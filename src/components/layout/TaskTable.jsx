@@ -1,184 +1,248 @@
 // src/components/layout/TaskTable.jsx
-import React, { useState, useEffect } from 'react'; // useEffect 추가
-import { collection, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore'; // Firestore 함수 추가
-import { db } from '../../firebase'; // Firebase db 추가
-import { Trash2 } from 'lucide-react'; // 삭제 아이콘 추가
+import React, { useState } from 'react';
+import { db } from '../../firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 
-const TaskTable = () => {
-  const [tasks, setTasks] = useState([]); // 태스크 목록 상태
-  const [editingCell, setEditingCell] = useState(null); // 수정 중인 셀 상태
-  const [editValue, setEditValue] = useState(''); // 수정 중인 값
+const TaskTable = ({ tasks }) => {
+  const [editingCell, setEditingCell] = useState({ taskId: null, field: null });
+  const [editValue, setEditValue] = useState('');
 
-  // Firestore에서 실시간으로 데이터 가져오기
-  useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, 'tasks'), (snapshot) => {
-      const tasksData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setTasks(tasksData);
-    });
-
-    // 컴포넌트 언마운트 시 구독 해제
-    return () => unsubscribe();
-  }, []);
-
-  // 셀 클릭 시 편집 모드로 전환
-  const handleCellClick = (taskId, field, value) => {
-    setEditingCell({ taskId, field });
-    setEditValue(value);
-  };
-
-  // 편집 완료 시 처리
-  const handleEditComplete = async (taskId, field) => {
-    try {
-      const taskRef = doc(db, 'tasks', taskId);
-      await updateDoc(taskRef, { [field]: editValue }); // Firestore 문서 업데이트
-      setEditingCell(null);
-      setEditValue('');
-    } catch (error) {
-      console.error("Error updating task: ", error);
-      alert('수정 중 오류가 발생했습니다.');
+  const getStatusStyle = (status) => {
+    switch (status) {
+      case '시작전':
+        return 'bg-gray-100 text-gray-800';
+      case '진행중':
+        return 'bg-blue-100 text-blue-800';
+      case '완료':
+        return 'bg-emerald-100 text-emerald-800';
+      default:
+        return '';
     }
   };
 
-  // 수정 가능한 셀 렌더링
-  const renderEditableCell = (task, field, value) => {
-    const isEditing = editingCell?.taskId === task.id && editingCell?.field === field;
+  const getPriorityStyle = (priority) => {
+    switch (priority) {
+      case '높음':
+        return 'bg-red-100 text-red-800';
+      case '중간':
+        return 'bg-yellow-100 text-yellow-800';
+      case '낮음':
+        return 'bg-green-100 text-green-800';
+      default:
+        return '';
+    }
+  };
+
+  const calculateDday = (dueDate) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const due = new Date(dueDate);
+    const diffTime = due - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return 'D-Day';
+    return diffDays > 0 ? `D-${diffDays}` : `D+${Math.abs(diffDays)}`;
+  };
+
+  const handleCellClick = (task, field) => {
+    setEditingCell({ taskId: task.id, field });
+    setEditValue(task[field]);
+  };
+
+  const handleChange = (e) => {
+    setEditValue(e.target.value);
+  };
+
+  const handleBlur = async (taskId, field) => {
+    if (editingCell.taskId && editingCell.field) {
+      try {
+        const taskRef = doc(db, 'tasks', taskId);
+        await updateDoc(taskRef, {
+          [field]: editValue
+        });
+      } catch (error) {
+        console.error("Error updating task: ", error);
+      }
+    }
+    setEditingCell({ taskId: null, field: null });
+  };
+
+  const handleKeyDown = (e, taskId, field) => {
+    if (e.key === 'Enter') {
+      handleBlur(taskId, field);
+    } else if (e.key === 'Escape') {
+      setEditingCell({ taskId: null, field: null });
+    }
+  };
+
+  const renderCell = (task, field) => {
+    const isEditing = editingCell.taskId === task.id && editingCell.field === field;
 
     if (isEditing) {
+      if (field === 'priority') {
+        return (
+          <select
+            value={editValue}
+            onChange={handleChange}
+            onBlur={() => handleBlur(task.id, field)}
+            className="w-24 sm:w-32 px-2 py-1 border rounded text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            autoFocus
+          >
+            <option value="높음">높음</option>
+            <option value="중간">중간</option>
+            <option value="낮음">낮음</option>
+          </select>
+        );
+      }
+
+      if (field === 'status') {
+        return (
+          <select
+            value={editValue}
+            onChange={handleChange}
+            onBlur={() => handleBlur(task.id, field)}
+            className="w-24 sm:w-32 px-2 py-1 border rounded text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            autoFocus
+          >
+            <option value="시작전">시작전</option>
+            <option value="진행중">진행중</option>
+            <option value="완료">완료</option>
+          </select>
+        );
+      }
+
+      if (field === 'dueDate') {
+        return (
+          <input
+            type="date"
+            value={editValue}
+            onChange={handleChange}
+            onBlur={() => handleBlur(task.id, field)}
+            onKeyDown={(e) => handleKeyDown(e, task.id, field)}
+            className="w-28 sm:w-40 px-2 py-1 border rounded text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            autoFocus
+          />
+        );
+      }
+
       return (
         <input
-          type={field === 'dueDate' ? 'date' : 'text'}
+          type="text"
           value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
-          onBlur={() => handleEditComplete(task.id, field)}
-          onKeyPress={(e) => {
-            if (e.key === 'Enter') {
-              handleEditComplete(task.id, field);
-            }
-          }}
-          className="w-full px-2 py-1 border rounded"
+          onChange={handleChange}
+          onBlur={() => handleBlur(task.id, field)}
+          onKeyDown={(e) => handleKeyDown(e, task.id, field)}
+          className="w-full px-2 py-1 border rounded text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           autoFocus
         />
       );
     }
 
+    // 일반 셀 표시
+    if (field === 'priority') {
+      return (
+        <div 
+          onClick={() => handleCellClick(task, field)}
+          className={`cursor-pointer rounded-full px-2 sm:px-3 py-0.5 sm:py-1 text-center text-xs sm:text-sm font-medium ${getPriorityStyle(task[field])}`}
+        >
+          {task[field]}
+        </div>
+      );
+    }
+
+    if (field === 'status') {
+      return (
+        <div 
+          onClick={() => handleCellClick(task, field)}
+          className={`cursor-pointer rounded-full px-2 sm:px-3 py-0.5 sm:py-1 text-center text-xs sm:text-sm font-medium ${getStatusStyle(task[field])}`}
+        >
+          {task[field]}
+        </div>
+      );
+    }
+
+    if (field === 'dueDate') {
+      return (
+        <div 
+          onClick={() => handleCellClick(task, field)}
+          className="cursor-pointer flex items-center gap-1 sm:gap-2"
+        >
+          <span className="text-xs sm:text-sm">{task[field]}</span>
+          <span className={`text-xs ${
+            task[field] && new Date(task[field]) < new Date() ? 'text-red-500' : 'text-blue-500'
+          }`}>
+            {calculateDday(task[field])}
+          </span>
+        </div>
+      );
+    }
+
     return (
       <div 
-        onClick={() => handleCellClick(task.id, field, value)}
-        className="cursor-pointer hover:bg-gray-50 px-2 py-1 rounded"
+        onClick={() => handleCellClick(task, field)}
+        className="cursor-pointer text-xs sm:text-sm hover:bg-gray-50 px-1 py-0.5 rounded"
       >
-        {value}
+        {task[field]}
       </div>
     );
   };
 
-
-
-  // 삭제 함수 추가
-  const handleDelete = async (taskId) => {
-    if (window.confirm('정말 이 태스크를 삭제하시겠습니까?')) { // 삭제 확인
-      try {
-        await deleteDoc(doc(db, 'tasks', taskId)); // Firestore에서 문서 삭제
-      } catch (error) {
-        console.error("Error deleting task: ", error);
-        alert('삭제 중 오류가 발생했습니다.');
-      }
-    }
-  };
-
-  // 우선순위에 따른 배지 스타일
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case '높음': return 'bg-red-100 text-red-800 border border-red-200';
-      case '중간': return 'bg-yellow-100 text-yellow-800 border border-yellow-200';
-      case '낮음': return 'bg-green-100 text-green-800 border border-green-200';
-      default: return 'bg-gray-100 text-gray-800 border border-gray-200';
-    }
-  };
-
-  const calculateDaysRemaining = (dueDate) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const due = new Date(dueDate + 'T00:00:00+09:00');
-    const diffTime = due.getTime() - today.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays < 0) {
-      return <span className="text-red-500">D+{Math.abs(diffDays)}</span>;
-    } else if (diffDays === 0) {
-      return <span className="text-orange-500">D-Day</span>;
-    } else {
-      return <span className="text-blue-500">D-{diffDays}</span>;
-    }
-  };
-
   return (
-    <div className="overflow-x-auto bg-white rounded-lg shadow">
-      <table className="min-w-full">
-        <thead className="bg-gray-50">
-          <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">우선순위</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">작업명</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">담당자</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">마감일</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">요약</th>
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {tasks.map((task) => (
-            <tr key={task.id} className="hover:bg-gray-50">
-              <td className="px-6 py-4 whitespace-nowrap">
-                <select
-                  value={task.priority}
-                  onChange={(e) => handleEditComplete(task.id, 'priority', e.target.value)}
-                  className={`px-3 py-1 rounded-full text-sm font-semibold ${getPriorityColor(task.priority)}`}
-                >
-                  {['높음', '중간', '낮음'].map(priority => (
-                    <option key={priority} value={priority}>{priority}</option>
-                  ))}
-                </select>
-              </td>
-              <td className="px-6 py-4">
-                {renderEditableCell(task, 'name', task.name)}
-              </td>
-              <td className="px-6 py-4">
-                <select
-                  value={task.status}
-                  onChange={(e) => handleEditComplete(task.id, 'status', e.target.value)}
-                  className="px-2 py-1 border rounded text-sm"
-                >
-                  {['시작전', '진행중', '완료'].map(status => (
-                    <option key={status} value={status}>{status}</option>
-                  ))}
-                </select>
-              </td>
-              <td className="px-6 py-4">
-                {renderEditableCell(task, 'assignee', task.assignee)}
-              </td>
-              <td className="px-6 py-4">
-                <div className="flex items-center gap-2">
-                  {renderEditableCell(task, 'dueDate', task.dueDate)}
-                  {calculateDaysRemaining(task.dueDate)}
-                </div>
-              </td>
-              <td className="px-6 py-4">
-                {renderEditableCell(task, 'summary', task.summary)}
-              </td>
-              <td className="px-6 py-4">
-                <button
-                  onClick={() => handleDelete(task.id)}
-                  className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-100"
-                >
-                  <Trash2 size={18} />
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="w-full -mx-4 sm:mx-0 overflow-hidden">
+      <div className="overflow-x-auto">
+        <div className="inline-block min-w-full align-middle">
+          <div className="overflow-hidden shadow-sm ring-1 ring-black ring-opacity-5">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="py-2 sm:py-3.5 pl-2 sm:pl-4 pr-2 sm:pr-3 text-left text-xs font-semibold text-gray-900">
+                    작업명
+                  </th>
+                  <th scope="col" className="px-2 sm:px-3 py-2 sm:py-3.5 text-left text-xs font-semibold text-gray-900 w-24 sm:w-32">
+                    우선순위
+                  </th>
+                  <th scope="col" className="px-2 sm:px-3 py-2 sm:py-3.5 text-left text-xs font-semibold text-gray-900 w-24 sm:w-32">
+                    상태
+                  </th>
+                  <th scope="col" className="px-2 sm:px-3 py-2 sm:py-3.5 text-left text-xs font-semibold text-gray-900">
+                    담당자
+                  </th>
+                  <th scope="col" className="px-2 sm:px-3 py-2 sm:py-3.5 text-left text-xs font-semibold text-gray-900 w-28 sm:w-40">
+                    마감일
+                  </th>
+                  <th scope="col" className="px-2 sm:px-3 py-2 sm:py-3.5 text-left text-xs font-semibold text-gray-900">
+                    요약
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 bg-white">
+                {tasks.map((task) => (
+                  <tr key={task.id} className="hover:bg-gray-50">
+                    <td className="whitespace-nowrap py-2 sm:py-4 pl-2 sm:pl-4 pr-2 sm:pr-3">
+                      {renderCell(task, 'name')}
+                    </td>
+                    <td className="whitespace-nowrap px-2 sm:px-3 py-2 sm:py-4">
+                      {renderCell(task, 'priority')}
+                    </td>
+                    <td className="whitespace-nowrap px-2 sm:px-3 py-2 sm:py-4">
+                      {renderCell(task, 'status')}
+                    </td>
+                    <td className="whitespace-nowrap px-2 sm:px-3 py-2 sm:py-4">
+                      {renderCell(task, 'assignee')}
+                    </td>
+                    <td className="whitespace-nowrap px-2 sm:px-3 py-2 sm:py-4">
+                      {renderCell(task, 'dueDate')}
+                    </td>
+                    <td className="whitespace-nowrap px-2 sm:px-3 py-2 sm:py-4">
+                      {renderCell(task, 'summary')}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
